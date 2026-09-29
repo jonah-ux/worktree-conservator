@@ -24,6 +24,12 @@ Requirements: Python 3.11+, Git 2.38+, a local Git repository with a resolvable 
 
 ## Quick start
 
+Try the complete workflow in a disposable repository:
+
+```console
+worktree-conservator demo --json
+```
+
 All repository selection is explicit; `--repo` names the owner Git repository, and `--root` optionally limits consideration to registered worktrees below a directory. The default base ref is `origin/main`. You can add extra protected paths with repeated `--protected PATH` options.
 
 ```console
