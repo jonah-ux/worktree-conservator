@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "worktree-conservator"
+version = "0.1.0"
+description = "Preserve-first, fail-closed Git worktree conservation and recovery"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Jonah Helland"}]
+keywords = ["git", "worktree", "recovery", "archive", "safety"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Version Control :: Git",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/jonah-ux/worktree-conservator"
+Repository = "https://github.com/jonah-ux/worktree-conservator"
+Issues = "https://github.com/jonah-ux/worktree-conservator/issues"
+
+[project.scripts]
+worktree-conservator = "worktree_conservator.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+worktree_conservator = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
