@@ -14,7 +14,7 @@ Python 3.11+ · Git 2.38+ · Zero Python runtime dependencies · MIT · Early re
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install 'git+https://github.com/jonah-ux/worktree-conservator.git@v0.1.0'
+python -m pip install 'git+https://github.com/jonah-ux/worktree-conservator.git@v0.2.0'
 worktree-conservator --version
 ```
 
