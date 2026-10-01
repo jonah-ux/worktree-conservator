@@ -13,12 +13,12 @@ Python 3.11+ · Git 2.38+ · Zero Python runtime dependencies · MIT · Early re
 ```console
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install 'git+https://github.com/jonah-ux/worktree-conservator.git@v0.2.0'
+python3 -m pip install --upgrade pip
+python3 -m pip install 'git+https://github.com/jonah-ux/worktree-conservator.git@v0.2.0'
 worktree-conservator --version
 ```
 
-Alternatively, install a wheel from [GitHub Releases](https://github.com/jonah-ux/worktree-conservator/releases). Try the complete temporary-repository workflow with `worktree-conservator demo --json` after installing. For development, install the source checkout with `python -m pip install -e .`.
+Alternatively, install a wheel from [GitHub Releases](https://github.com/jonah-ux/worktree-conservator/releases). Try the complete temporary-repository workflow with `worktree-conservator demo --json` after installing. For development, install the source checkout with `python3 -m pip install -e .`.
 
 Requirements: Python 3.11+, Git 2.38+, a local Git repository with a resolvable base ref. There are no Python runtime dependencies and no Fleet paths, rosters, credentials, schedulers, databases, or network calls.
 
@@ -139,9 +139,9 @@ Restore stages the bounded input in a private snapshot so validation and extract
 ```console
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -e .
-python -m unittest discover -s tests -v
-python -m worktree_conservator demo
+python3 -m pip install -e .
+python3 -m unittest discover -s tests -v
+python3 -m worktree_conservator demo
 ```
 
 The demo builds only temporary repositories and executes scan/plan/apply/verify/restore end-to-end. See [Contributing](CONTRIBUTING.md), [security policy](SECURITY.md), [release procedure](docs/releasing.md), [source provenance](PROVENANCE.md), and [limitations](docs/limitations.md).
