@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .core import apply_plan, make_plan, restore, scan
+from .core import apply_plan, make_plan, restore, scan, verify_archive
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -41,9 +41,11 @@ def run_demo() -> dict[str, object]:
         plan_path.write_text(json.dumps(plan, sort_keys=True, indent=2) + "\n", encoding="utf-8")
         applied = apply_plan(plan_path, plan["plan_sha256"], repo, archives, worktrees)
         archived = applied["applied"][0]
+        verified = verify_archive(archived["archive"], archived["archive_sha256"], repo, archived["receipt"])
         restored = restore(archived["archive"], archived["archive_sha256"], repo, recovered)
         return {"demo": "worktree-conservator/v1", "planned": len(plan["payload"]["candidates"]),
-                "applied": len(applied["applied"]), "restored": restored["clean"], "head": restored["head"]}
+                "applied": len(applied["applied"]), "verified": verified["git_content_verified"],
+                "restored": restored["clean"], "head": restored["head"]}
 
 
 def main() -> int:

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .core import ConservatorError, apply_plan, make_plan, restore, scan
+from .core import ConservatorError, apply_plan, make_plan, restore, scan, verify_archive
 from .demo import run_demo
 
 EXIT_SUCCESS = 0
@@ -59,6 +59,13 @@ def _parser() -> argparse.ArgumentParser:
     restore_p.add_argument("--target", required=True)
     restore_p.add_argument("--json", action="store_true")
 
+    verify_p = sub.add_parser("verify", help="read-only verify a retained archive against Git and an optional apply receipt")
+    verify_p.add_argument("--repo", required=True)
+    verify_p.add_argument("--archive", required=True)
+    verify_p.add_argument("--archive-sha256", required=True)
+    verify_p.add_argument("--receipt", help="optional apply receipt to bind to the archive")
+    verify_p.add_argument("--json", action="store_true")
+
     demo_p = sub.add_parser("demo", help="run an end-to-end disposable temporary-repository demo")
     demo_p.add_argument("--json", action="store_true")
     return parser
@@ -102,6 +109,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "restore":
             data = restore(args.archive, args.archive_sha256.lower(), args.repo, args.target)
             output = _result("restore", ok=True, data=data)
+        elif args.command == "verify":
+            data = verify_archive(args.archive, args.archive_sha256.lower(), args.repo, args.receipt)
+            output = _result("verify", ok=True, data=data)
         else:
             data = run_demo()
             output = _result("demo", ok=True, data=data)
