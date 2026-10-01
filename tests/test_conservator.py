@@ -13,8 +13,8 @@ from pathlib import Path
 from unittest import mock
 from worktree_conservator import core
 
-from worktree_conservator.core import (ConservatorError, _live_process, apply_plan, make_plan, plan_digest,
-                                       restore, scan, verify_archive)
+from worktree_conservator.core import (ConservatorError, _live_process, apply_plan, audit_archive_dir,
+                                       make_plan, plan_digest, restore, scan, verify_archive)
 
 
 class Fixture(unittest.TestCase):
@@ -144,6 +144,61 @@ class Fixture(unittest.TestCase):
         self.assertEqual(verified["files"], 1)
         self.assertEqual(verified["receipt_state"], "removed_and_verified")
         self.assertEqual(verified["head"], self.head)
+
+    def test_audit_reconciles_every_archive_receipt_and_journal_transition(self) -> None:
+        candidate = self.candidate()
+        value, path = self.plan(candidate)
+        applied = apply_plan(path, value["plan_sha256"], self.repo, self.archive_dir, self.worktrees)
+
+        audited = audit_archive_dir(self.archive_dir, self.repo, path, value["plan_sha256"])
+
+        self.assertTrue(audited["complete"])
+        self.assertEqual(audited["counts"]["journal_operations"], 1)
+        self.assertEqual(audited["counts"]["receipt_count"], 1)
+        self.assertEqual(audited["counts"]["removed_and_verified"], 1)
+        self.assertEqual(audited["operations"][0]["lifecycle"], "removed_and_verified")
+        self.assertEqual(audited["operations"][0]["archive"], applied["applied"][0]["archive"])
+
+    def test_audit_fails_closed_when_archive_or_receipt_lifecycle_is_tampered(self) -> None:
+        candidate = self.candidate()
+        value, path = self.plan(candidate)
+        applied = apply_plan(path, value["plan_sha256"], self.repo, self.archive_dir, self.worktrees)
+        archived = applied["applied"][0]
+        archive = Path(archived["archive"])
+        archive.write_bytes(archive.read_bytes() + b"tampered")
+
+        with self.assertRaises(ConservatorError) as caught:
+            audit_archive_dir(self.archive_dir, self.repo)
+        self.assertEqual(caught.exception.code, "archive_digest_mismatch")
+
+    def test_audit_plan_binding_refuses_receipt_candidate_identity_change(self) -> None:
+        candidate = self.candidate()
+        value, path = self.plan(candidate)
+        applied = apply_plan(path, value["plan_sha256"], self.repo, self.archive_dir, self.worktrees)
+        receipt = Path(applied["applied"][0]["receipt"])
+        receipt_value = json.loads(receipt.read_text(encoding="utf-8"))
+        receipt_value["candidate"]["head"] = "0" * 40
+        receipt.write_text(json.dumps(receipt_value, sort_keys=True), encoding="utf-8")
+
+        with self.assertRaises(ConservatorError) as caught:
+            audit_archive_dir(self.archive_dir, self.repo, path, value["plan_sha256"])
+        self.assertEqual(caught.exception.code, "plan_receipt_mismatch")
+
+    def test_audit_keeps_planned_without_receipt_as_attention(self) -> None:
+        candidate = self.candidate()
+        value, path = self.plan(candidate)
+        # Apply's journal is durable and append-only. A plan-only record models an
+        # interruption before archival without fabricating a receipt or archive.
+        journal = self.archive_dir / "journal.jsonl"
+        self.archive_dir.mkdir(parents=True, exist_ok=True)
+        journal.write_text(json.dumps({"schema": "worktree-conservator.journal/v1",
+                                       "plan_sha256": value["plan_sha256"], "path": str(candidate),
+                                       "state": "planned"}) + "\n", encoding="utf-8")
+
+        audited = audit_archive_dir(self.archive_dir, self.repo, path, value["plan_sha256"])
+
+        self.assertFalse(audited["complete"])
+        self.assertEqual(audited["attention"][0]["lifecycle"], "planned_unfinished")
 
     def test_verify_rejects_wrong_digest_tampered_archive_and_receipt_mismatch(self) -> None:
         candidate = self.candidate()

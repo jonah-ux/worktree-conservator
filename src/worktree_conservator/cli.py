@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .core import ConservatorError, apply_plan, make_plan, restore, scan, verify_archive
+from .core import ConservatorError, apply_plan, audit_archive_dir, make_plan, restore, scan, verify_archive
 from .demo import run_demo
 
 EXIT_SUCCESS = 0
@@ -66,6 +66,13 @@ def _parser() -> argparse.ArgumentParser:
     verify_p.add_argument("--receipt", help="optional apply receipt to bind to the archive")
     verify_p.add_argument("--json", action="store_true")
 
+    audit_p = sub.add_parser("audit", help="read-only reconcile archives, receipts, and the recovery journal")
+    audit_p.add_argument("--repo", required=True, help="explicit Git repository/worktree root")
+    audit_p.add_argument("--archive-dir", required=True, help="existing archive directory produced by apply")
+    audit_p.add_argument("--plan", help="optional exact plan JSON to bind every operation")
+    audit_p.add_argument("--plan-sha256", help="trusted SHA-256 for --plan; both plan options are required together")
+    audit_p.add_argument("--json", action="store_true")
+
     demo_p = sub.add_parser("demo", help="run an end-to-end disposable temporary-repository demo")
     demo_p.add_argument("--json", action="store_true")
     return parser
@@ -112,6 +119,10 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "verify":
             data = verify_archive(args.archive, args.archive_sha256.lower(), args.repo, args.receipt)
             output = _result("verify", ok=True, data=data)
+        elif args.command == "audit":
+            data = audit_archive_dir(args.archive_dir, args.repo, args.plan,
+                                     args.plan_sha256.lower() if args.plan_sha256 else None)
+            output = _result("audit", ok=True, data=data)
         else:
             data = run_demo()
             output = _result("demo", ok=True, data=data)
