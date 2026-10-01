@@ -13,7 +13,8 @@ from pathlib import Path
 from unittest import mock
 from worktree_conservator import core
 
-from worktree_conservator.core import ConservatorError, _live_process, apply_plan, make_plan, plan_digest, restore, scan
+from worktree_conservator.core import (ConservatorError, _live_process, apply_plan, make_plan, plan_digest,
+                                       restore, scan, verify_archive)
 
 
 class Fixture(unittest.TestCase):
@@ -130,6 +131,64 @@ class Fixture(unittest.TestCase):
         self.assertTrue(restored["clean"])
         self.assertEqual((self.worktrees / "restored" / "tracked.txt").read_text(), "tracked\n")
         self.assertEqual((self.worktrees / "restored" / "tracked.txt").stat().st_mode & 0o777, 0o644)
+
+    def test_verify_readback_binds_archive_receipt_and_git_content(self) -> None:
+        candidate = self.candidate()
+        value, path = self.plan(candidate)
+        applied = apply_plan(path, value["plan_sha256"], self.repo, self.archive_dir, self.worktrees)
+        archived = applied["applied"][0]
+
+        verified = verify_archive(archived["archive"], archived["archive_sha256"], self.repo, archived["receipt"])
+
+        self.assertTrue(verified["git_content_verified"])
+        self.assertEqual(verified["files"], 1)
+        self.assertEqual(verified["receipt_state"], "removed_and_verified")
+        self.assertEqual(verified["head"], self.head)
+
+    def test_verify_rejects_wrong_digest_tampered_archive_and_receipt_mismatch(self) -> None:
+        candidate = self.candidate()
+        value, path = self.plan(candidate)
+        applied = apply_plan(path, value["plan_sha256"], self.repo, self.archive_dir, self.worktrees)
+        archived = applied["applied"][0]
+
+        with self.assertRaises(ConservatorError) as caught:
+            verify_archive(archived["archive"], "0" * 64, self.repo, archived["receipt"])
+        self.assertEqual(caught.exception.code, "archive_digest_mismatch")
+
+        tampered = self.root / "tampered.tar"
+        tampered.write_bytes(b"not a tar archive")
+        tampered_digest = hashlib.sha256(tampered.read_bytes()).hexdigest()
+        with self.assertRaises(ConservatorError) as caught:
+            verify_archive(tampered, tampered_digest, self.repo)
+        self.assertIn(caught.exception.code, {"archive_corrupt", "archive_manifest_missing"})
+
+        receipt = Path(archived["receipt"])
+        receipt_value = json.loads(receipt.read_text(encoding="utf-8"))
+        receipt_value["archive_sha256"] = "0" * 64
+        mismatched_receipt = self.root / "mismatched.receipt.json"
+        mismatched_receipt.write_text(json.dumps(receipt_value), encoding="utf-8")
+        with self.assertRaises(ConservatorError) as caught:
+            verify_archive(archived["archive"], archived["archive_sha256"], self.repo, mismatched_receipt)
+        self.assertEqual(caught.exception.code, "receipt_digest_mismatch")
+
+    def test_verify_rejects_archive_from_a_different_repository(self) -> None:
+        candidate = self.candidate()
+        value, path = self.plan(candidate)
+        applied = apply_plan(path, value["plan_sha256"], self.repo, self.archive_dir, self.worktrees)
+        archived = applied["applied"][0]
+
+        other = self.root / "other-repo"
+        other.mkdir()
+        subprocess.run(["git", "-C", str(other), "init", "-q", "-b", "main"], check=True)
+        subprocess.run(["git", "-C", str(other), "config", "user.name", "Fixture"], check=True)
+        subprocess.run(["git", "-C", str(other), "config", "user.email", "fixture@example.invalid"], check=True)
+        (other / "other.txt").write_text("other\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(other), "add", "other.txt"], check=True)
+        subprocess.run(["git", "-C", str(other), "commit", "-qm", "other"], check=True)
+
+        with self.assertRaises(ConservatorError) as caught:
+            verify_archive(archived["archive"], archived["archive_sha256"], other)
+        self.assertEqual(caught.exception.code, "archive_repository_mismatch")
 
     def test_restore_uses_verified_snapshot_when_input_is_replaced(self) -> None:
         candidate = self.candidate()

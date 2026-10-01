@@ -14,10 +14,11 @@ import tempfile
 import time
 from typing import Any, Iterable
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 PLAN_SCHEMA = "worktree-conservator.plan/v1"
 RESULT_SCHEMA = "worktree-conservator.result/v1"
 MANIFEST_SCHEMA = "worktree-conservator.archive-manifest/v1"
+RECEIPT_SCHEMA = "worktree-conservator.receipt/v1"
 MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_MEMBERS = 200_000
 MAX_MEMBER_BYTES = 512 * 1024 * 1024
@@ -1043,6 +1044,83 @@ def _read_manifest(archive: Path, repo: Path, expected_digest: str) -> tuple[dic
             raise ConservatorError("archive_manifest_mismatch", "archive manifest Git object id is invalid", 4)
     members = manifest_members
     return manifest, members
+
+
+def _read_receipt(receipt_arg: str | Path, archive: Path, expected_digest: str,
+                  repo_info: dict[str, Any]) -> dict[str, Any]:
+    """Read an apply receipt and bind it to the archive and repository being verified."""
+    receipt = _absolute(receipt_arg)
+    try:
+        value = strict_json(receipt.read_bytes())
+    except OSError as exc:
+        raise ConservatorError("receipt_unavailable", "receipt cannot be read", 4) from exc
+    if not isinstance(value, dict) or value.get("schema") != RECEIPT_SCHEMA:
+        raise ConservatorError("receipt_invalid", "receipt schema is invalid", 4)
+    required = {"schema", "plan_sha256", "candidate", "archive", "archive_sha256", "manifest_sha256", "state"}
+    if not required.issubset(value) or not isinstance(value.get("candidate"), dict):
+        raise ConservatorError("receipt_invalid", "receipt is missing required preservation fields", 4)
+    candidate = value["candidate"]
+    if not isinstance(value.get("archive"), str) or not value["archive"]:
+        raise ConservatorError("receipt_invalid", "receipt archive path is missing", 4)
+    if value.get("archive_sha256") != expected_digest:
+        raise ConservatorError("receipt_digest_mismatch", "receipt archive digest differs from the trusted SHA-256", 4)
+    for key in ("plan_sha256", "archive_sha256", "manifest_sha256"):
+        if not isinstance(value.get(key), str) or not re.fullmatch(r"[0-9a-f]{64}", value[key]):
+            raise ConservatorError("receipt_invalid", f"receipt {key} is not a SHA-256 digest", 4)
+    if value.get("state") not in {"archive_verified", "archived_not_removed", "removed_and_verified",
+                                   "removal_failed_preserved"}:
+        raise ConservatorError("receipt_state_invalid", "receipt does not prove a retained verified archive", 4)
+    for key in ("repo", "common_dir", "common_device", "common_inode"):
+        if candidate.get(key) != repo_info.get(key):
+            raise ConservatorError("receipt_repository_mismatch", "receipt repository identity differs from --repo", 4)
+    return value
+
+
+def verify_archive(archive_arg: str | Path, expected_sha: str, repo_arg: str | Path,
+                   receipt_arg: str | Path | None = None) -> dict[str, Any]:
+    """Verify a retained archive against Git objects and, optionally, its apply receipt.
+
+    This is deliberately read-only. It rechecks the archive digest, manifest, repository
+    identity, tracked file set, modes, Git object IDs, and blob bytes. A receipt, when
+    supplied, must describe the same archive and identity but the worktree itself may be
+    absent after a successful apply.
+    """
+    archive = _absolute(archive_arg)
+    _no_symlink_components(archive)
+    info = _repo_info(repo_arg)
+    repo = Path(info["repo"])
+    manifest, members = _read_manifest(archive, repo, expected_sha)
+    source = manifest.get("source")
+    if not isinstance(source, dict):
+        raise ConservatorError("archive_manifest_invalid", "archive source identity is invalid", 4)
+    source_identity = {"repository": info["repo"], "common_dir": info["common_dir"],
+                       "common_device": info["common_device"], "common_inode": info["common_inode"]}
+    for key, expected in source_identity.items():
+        if source.get(key) != expected:
+            raise ConservatorError("archive_repository_mismatch", "archive belongs to a different Git repository identity", 4)
+    head = source.get("head")
+    if not isinstance(head, str) or not re.fullmatch(r"[0-9a-fA-F]{40,64}", head):
+        raise ConservatorError("archive_manifest_invalid", "archive HEAD is invalid", 4)
+    # Re-read through the Git-aware path. This proves every archived regular file against
+    # the recorded commit, including its mode, object ID, and SHA-256 blob bytes.
+    checked_members, manifest_bytes = _archive_members(archive, repo, head, compare_blobs=True)
+    if checked_members != members:
+        raise ConservatorError("archive_content_mismatch", "archive members differ between manifest and Git verification", 4)
+    checked_manifest = strict_json(manifest_bytes)
+    if checked_manifest != manifest:
+        raise ConservatorError("archive_manifest_mismatch", "archive manifest changed during verification", 4)
+    manifest_sha = hashlib.sha256(canonical_json(manifest)).hexdigest()
+    receipt_value = None
+    if receipt_arg is not None:
+        receipt_value = _read_receipt(receipt_arg, archive, expected_sha, info)
+        if receipt_value.get("manifest_sha256") != manifest_sha:
+            raise ConservatorError("receipt_manifest_mismatch", "receipt manifest digest differs from the archive", 4)
+    return {"archive": str(archive), "archive_sha256": expected_sha, "manifest_sha256": manifest_sha,
+            "repository": info["repo"], "common_dir": info["common_dir"], "head": head,
+            "files": len(members), "git_content_verified": True,
+            "receipt": str(_absolute(receipt_arg)) if receipt_arg is not None else None,
+            "receipt_archive": receipt_value.get("archive") if receipt_value is not None else None,
+            "receipt_state": receipt_value.get("state") if receipt_value is not None else None}
 
 
 def _extract_member(tar: tarfile.TarFile, member: tarfile.TarInfo, root: Path) -> None:
