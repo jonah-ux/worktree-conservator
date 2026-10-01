@@ -19,8 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-Provenance: independently authored standalone implementation informed by
-inspection of jonah-ux/fleet commit 8d6040d8b9710b8da2090bbab94ad088137bed4d,
-including runtime/kits/worktree-conservator, runtime/bin/worktree-gc,
-and runtime/lib/worktree_removal_contract.py. No Fleet source files were copied.
