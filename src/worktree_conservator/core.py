@@ -14,11 +14,13 @@ import tempfile
 import time
 from typing import Any, Iterable
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 PLAN_SCHEMA = "worktree-conservator.plan/v1"
 RESULT_SCHEMA = "worktree-conservator.result/v1"
 MANIFEST_SCHEMA = "worktree-conservator.archive-manifest/v1"
 RECEIPT_SCHEMA = "worktree-conservator.receipt/v1"
+JOURNAL_SCHEMA = "worktree-conservator.journal/v1"
+AUDIT_SCHEMA = "worktree-conservator.audit/v1"
 MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_MEMBERS = 200_000
 MAX_MEMBER_BYTES = 512 * 1024 * 1024
@@ -1068,7 +1070,7 @@ def _read_receipt(receipt_arg: str | Path, archive: Path, expected_digest: str,
         if not isinstance(value.get(key), str) or not re.fullmatch(r"[0-9a-f]{64}", value[key]):
             raise ConservatorError("receipt_invalid", f"receipt {key} is not a SHA-256 digest", 4)
     if value.get("state") not in {"archive_verified", "archived_not_removed", "removed_and_verified",
-                                   "removal_failed_preserved"}:
+                                   "removal_failed_preserved", "removal_outcome_unknown"}:
         raise ConservatorError("receipt_state_invalid", "receipt does not prove a retained verified archive", 4)
     for key in ("repo", "common_dir", "common_device", "common_inode"):
         if candidate.get(key) != repo_info.get(key):
@@ -1121,6 +1123,306 @@ def verify_archive(archive_arg: str | Path, expected_sha: str, repo_arg: str | P
             "receipt": str(_absolute(receipt_arg)) if receipt_arg is not None else None,
             "receipt_archive": receipt_value.get("archive") if receipt_value is not None else None,
             "receipt_state": receipt_value.get("state") if receipt_value is not None else None}
+
+
+def _audit_digest(value: Any, field: str) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise ConservatorError("audit_invalid_digest", f"audit {field} is not a SHA-256 digest", 4)
+    return value
+
+
+def _audit_path(value: Any, field: str, *, must_exist: bool = False) -> Path:
+    if not isinstance(value, str) or not value:
+        raise ConservatorError("audit_invalid_path", f"audit {field} path is missing", 4)
+    candidate = Path(value).expanduser()
+    if not candidate.is_absolute():
+        raise ConservatorError("audit_invalid_path", f"audit {field} path must be absolute", 4)
+    return _absolute(candidate, must_exist=must_exist)
+
+
+def _audit_plan(plan_arg: str | Path, expected_sha: str, repo_arg: str | Path,
+                archive_dir: Path) -> tuple[str, dict[str, Any]]:
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_sha or ""):
+        raise ConservatorError("plan_digest_mismatch", "a trusted plan SHA-256 is required for audit", 3)
+    plan_path = _absolute(plan_arg)
+    try:
+        value = strict_json(plan_path.read_bytes())
+    except OSError as exc:
+        raise ConservatorError("plan_unavailable", "plan file cannot be read", 5) from exc
+    if not isinstance(value, dict) or set(value) != {"schema", "payload", "plan_sha256"} or value.get("schema") != PLAN_SCHEMA:
+        raise ConservatorError("invalid_plan", "plan schema is invalid", 2)
+    payload = value.get("payload")
+    required = {"schema", "repository", "root", "base_ref", "base_head", "min_age_hours",
+                "protected_paths", "archive_dir", "candidates"}
+    if not isinstance(payload, dict) or set(payload) != required or payload.get("schema") != PLAN_SCHEMA:
+        raise ConservatorError("invalid_plan", "plan payload is invalid", 2)
+    actual = plan_digest(payload)
+    if actual != expected_sha or value.get("plan_sha256") != actual:
+        raise ConservatorError("plan_digest_mismatch", "plan digest does not match the exact reviewed plan", 3,
+                               actual_sha256=actual)
+    info = _repo_info(repo_arg)
+    if payload.get("repository") != info:
+        raise ConservatorError("repository_identity_changed", "configured repository identity differs from the plan", 3)
+    if payload.get("archive_dir") != str(archive_dir):
+        raise ConservatorError("archive_destination_changed", "audit archive directory differs from the plan", 3)
+    candidates = payload.get("candidates")
+    if not isinstance(candidates, list) or any(not isinstance(item, dict) or item.get("eligible") is not True for item in candidates):
+        raise ConservatorError("invalid_plan", "plan candidates are invalid", 2)
+    return actual, {"path": str(plan_path), "payload": payload, "candidates": candidates}
+
+
+def _audit_journal(journal: Path, archive_dir: Path) -> tuple[dict[tuple[str, str], list[dict[str, Any]]], list[dict[str, Any]]]:
+    try:
+        raw = journal.read_bytes()
+    except OSError as exc:
+        raise ConservatorError("journal_unavailable", "journal cannot be read", 4) from exc
+    if len(raw) > MAX_MANIFEST_BYTES:
+        raise ConservatorError("journal_limit", "journal exceeds the safety limit", 4)
+    if not raw.strip():
+        raise ConservatorError("journal_empty", "journal contains no operation records", 4)
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    records: list[dict[str, Any]] = []
+    allowed_states = {"planned", "archive_verified", "archived_not_removed", "remove_started", "removed_and_verified"}
+    for line_no, line in enumerate(raw.splitlines(), start=1):
+        if not line.strip():
+            raise ConservatorError("journal_invalid", "journal contains a blank record", 4, line=line_no)
+        try:
+            record = strict_json(line)
+        except ConservatorError as exc:
+            raise ConservatorError("journal_invalid", "journal record is malformed", 4, line=line_no) from exc
+        if not isinstance(record, dict) or record.get("schema") != JOURNAL_SCHEMA:
+            raise ConservatorError("journal_invalid", "journal record schema is invalid", 4, line=line_no)
+        required = {"schema", "plan_sha256", "path", "state"}
+        allowed = required | {"archive", "archive_sha256"} | ({"phase"} if record.get("state") == "archived_not_removed" else set())
+        if not required.issubset(record) or set(record) - allowed:
+            raise ConservatorError("journal_invalid", "journal record fields are invalid", 4, line=line_no)
+        plan_sha = _audit_digest(record.get("plan_sha256"), "journal plan_sha256")
+        path = _audit_path(record.get("path"), "journal worktree", must_exist=False)
+        state = record.get("state")
+        if state not in allowed_states:
+            raise ConservatorError("journal_invalid", "journal state is unsupported", 4, line=line_no)
+        has_archive = "archive" in record or "archive_sha256" in record
+        if state == "planned" and has_archive:
+            raise ConservatorError("journal_invalid", "planned journal record cannot bind an archive", 4, line=line_no)
+        archive = None
+        archive_sha = None
+        if state != "planned":
+            allowed_fields = required | {"archive", "archive_sha256"}
+            if state in {"archived_not_removed", "remove_started"}:
+                optional = {"phase"} if state == "archived_not_removed" else set()
+                if set(record) not in (required | optional, required | optional | {"archive", "archive_sha256"}):
+                    raise ConservatorError("journal_invalid", "journal archive record fields are invalid", 4, line=line_no)
+            elif set(record) != allowed_fields:
+                raise ConservatorError("journal_invalid", "journal archive record fields are invalid", 4, line=line_no)
+            if has_archive:
+                archive = _audit_path(record.get("archive"), "journal archive", must_exist=False)
+                try:
+                    archive.relative_to(archive_dir)
+                except ValueError as exc:
+                    raise ConservatorError("journal_archive_outside", "journal archive is outside the audit directory", 4,
+                                           line=line_no) from exc
+                archive_sha = _audit_digest(record.get("archive_sha256"), "journal archive_sha256")
+        normalized = {"line": line_no, "schema": JOURNAL_SCHEMA, "plan_sha256": plan_sha,
+                      "path": str(path), "state": state}
+        if archive is not None:
+            normalized.update({"archive": str(archive), "archive_sha256": archive_sha})
+        key = (plan_sha, str(path))
+        grouped.setdefault(key, []).append(normalized)
+        records.append(normalized)
+    order = {"planned": 0, "archive_verified": 1, "archived_not_removed": 2,
+             "remove_started": 3, "removed_and_verified": 4}
+    for key, entries in grouped.items():
+        states = [entry["state"] for entry in entries]
+        if states != sorted(states, key=order.get) or len(states) != len(set(states)):
+            raise ConservatorError("journal_transition_invalid", "journal state transition is not monotonic", 4,
+                                   plan_sha256=key[0], path=key[1])
+        bound_archive = next((entry.get("archive") for entry in entries if entry.get("archive")), None)
+        bound_archive_sha = next((entry.get("archive_sha256") for entry in entries if entry.get("archive_sha256")), None)
+        for entry in entries:
+            if entry.get("archive") not in (None, bound_archive) or entry.get("archive_sha256") not in (None, bound_archive_sha):
+                raise ConservatorError("journal_archive_mismatch", "journal archive binding changed during an operation", 4,
+                                       plan_sha256=key[0], path=key[1])
+    return grouped, records
+
+
+def _audit_receipt(receipt_path: Path, archive_dir: Path, repo_arg: str | Path,
+                   repo_info: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    try:
+        value = strict_json(receipt_path.read_bytes())
+    except OSError as exc:
+        raise ConservatorError("receipt_unavailable", "receipt cannot be read", 4,
+                               receipt=str(receipt_path)) from exc
+    if not isinstance(value, dict) or value.get("schema") != RECEIPT_SCHEMA:
+        raise ConservatorError("receipt_invalid", "receipt schema is invalid", 4, receipt=str(receipt_path))
+    required = {"schema", "plan_sha256", "candidate", "archive", "archive_sha256", "manifest_sha256", "state"}
+    if not required.issubset(value) or not isinstance(value.get("candidate"), dict):
+        raise ConservatorError("receipt_invalid", "receipt is missing required preservation fields", 4,
+                               receipt=str(receipt_path))
+    archive = _audit_path(value.get("archive"), "receipt archive", must_exist=True)
+    try:
+        archive.relative_to(archive_dir)
+    except ValueError as exc:
+        raise ConservatorError("receipt_archive_outside", "receipt archive is outside the audit directory", 4,
+                               receipt=str(receipt_path)) from exc
+    if archive != receipt_path.with_name(receipt_path.name.removesuffix(".receipt.json")):
+        raise ConservatorError("receipt_archive_mismatch", "receipt filename does not bind to its archive", 4,
+                               receipt=str(receipt_path))
+    candidate = value["candidate"]
+    candidate_path = _audit_path(candidate.get("path"), "receipt candidate", must_exist=False)
+    plan_sha = _audit_digest(value.get("plan_sha256"), "receipt plan_sha256")
+    archive_sha = _audit_digest(value.get("archive_sha256"), "receipt archive_sha256")
+    manifest_sha = _audit_digest(value.get("manifest_sha256"), "receipt manifest_sha256")
+    state = value.get("state")
+    if state not in {"archive_verified", "archived_not_removed", "removed_and_verified",
+                     "removal_failed_preserved", "removal_outcome_unknown"}:
+        raise ConservatorError("receipt_state_invalid", "receipt does not prove a retained verified archive", 4,
+                               receipt=str(receipt_path))
+    # This binds the receipt, archive, manifest, and Git objects before any lifecycle
+    # inference.  A failure is a hard audit failure rather than an attention warning.
+    verified = verify_archive(archive, archive_sha, repo_arg, receipt_path)
+    if verified["manifest_sha256"] != manifest_sha:
+        raise ConservatorError("receipt_manifest_mismatch", "receipt manifest digest differs from the archive", 4,
+                               receipt=str(receipt_path))
+    return value, {"receipt": str(receipt_path), "archive": str(archive), "archive_sha256": archive_sha,
+                   "manifest_sha256": manifest_sha, "plan_sha256": plan_sha, "candidate_path": str(candidate_path),
+                   "candidate": candidate, "state": state, "verified": verified}
+
+
+def audit_archive_dir(archive_dir_arg: str | Path, repo_arg: str | Path,
+                      plan_arg: str | Path | None = None, plan_sha256: str | None = None) -> dict[str, Any]:
+    """Reconcile retained archives, receipts, and journal state without mutation.
+
+    Audit is an independent lifecycle readback: every discovered archive must have a
+    receipt, every receipt must verify against Git, and journal transitions must match
+    the receipt's claimed state.  A preserved or incomplete operation is reported as
+    attention rather than upgraded to removal success.
+    """
+    archive_dir = _absolute(archive_dir_arg)
+    if not archive_dir.is_dir():
+        raise ConservatorError("archive_directory_invalid", "audit archive directory must be an existing directory", 2)
+    _no_symlink_components(archive_dir)
+    info = _repo_info(repo_arg)
+    repo = Path(info["repo"])
+    if _overlaps(archive_dir, repo) or _overlaps(archive_dir, Path(info["common_dir"])):
+        raise ConservatorError("unsafe_archive_directory", "audit archive directory overlaps the repository or Git metadata", 3)
+    journal = archive_dir / "journal.jsonl"
+    if not journal.exists() or not journal.is_file():
+        raise ConservatorError("journal_missing", "audit archive directory has no readable recovery journal", 4,
+                               journal=str(journal))
+    _no_symlink_components(journal, allow_missing=False)
+    grouped, _records = _audit_journal(journal, archive_dir)
+    plan_info = None
+    bound_plan_sha = None
+    plan_candidates: dict[tuple[str, str], dict[str, Any]] = {}
+    if plan_arg is not None or plan_sha256 is not None:
+        if plan_arg is None or plan_sha256 is None:
+            raise ConservatorError("plan_binding_incomplete", "audit plan binding requires both --plan and --plan-sha256", 2)
+        bound_plan_sha, plan_info = _audit_plan(plan_arg, plan_sha256.lower(), repo_arg, archive_dir)
+        for candidate in plan_info["candidates"]:
+            candidate_path = _audit_path(candidate.get("path"), "plan candidate", must_exist=False)
+            plan_candidates[(bound_plan_sha, str(candidate_path))] = candidate
+    receipts: dict[str, dict[str, Any]] = {}
+    receipt_paths: list[Path] = []
+    archive_paths: list[Path] = []
+    for entry in sorted(archive_dir.iterdir(), key=lambda item: item.name):
+        if entry.name == "journal.jsonl":
+            continue
+        if entry.name.endswith(".tar"):
+            _no_symlink_components(entry)
+            if not entry.is_file():
+                raise ConservatorError("archive_invalid", "audit archive is not an ordinary file", 4,
+                                       archive=str(entry))
+            archive_paths.append(entry.resolve())
+        elif entry.name.endswith(".tar.receipt.json"):
+            _no_symlink_components(entry)
+            if not entry.is_file():
+                raise ConservatorError("receipt_invalid", "audit receipt is not an ordinary file", 4,
+                                       receipt=str(entry))
+            receipt_paths.append(entry.resolve())
+    for receipt_path in receipt_paths:
+        value, summary = _audit_receipt(receipt_path, archive_dir, repo_arg, info)
+        archive = summary["archive"]
+        if archive in receipts:
+            raise ConservatorError("receipt_duplicate", "multiple receipts bind the same archive", 4, archive=archive)
+        receipts[archive] = summary
+    archive_set = {str(path.resolve()) for path in archive_paths}
+    for archive in archive_set:
+        if archive not in receipts:
+            raise ConservatorError("archive_receipt_missing", "retained archive has no matching receipt", 4,
+                                   archive=archive)
+    for archive, summary in receipts.items():
+        key = (summary["plan_sha256"], summary["candidate_path"])
+        entries = grouped.get(key)
+        if not entries:
+            raise ConservatorError("journal_receipt_mismatch", "receipt has no matching journal operation", 4,
+                                   archive=archive, path=summary["candidate_path"])
+        final_state = entries[-1]["state"]
+        state = summary["state"]
+        if state == "removed_and_verified" and final_state != "removed_and_verified":
+            raise ConservatorError("journal_receipt_mismatch", "receipt removal state is absent from the journal", 4,
+                                   archive=archive, path=summary["candidate_path"])
+        if final_state == "removed_and_verified" and state != "removed_and_verified":
+            raise ConservatorError("journal_receipt_mismatch", "journal proves removal but receipt does not", 4,
+                                   archive=archive, path=summary["candidate_path"])
+        if bound_plan_sha is not None:
+            if summary["plan_sha256"] != bound_plan_sha or key not in plan_candidates:
+                raise ConservatorError("plan_receipt_mismatch", "receipt candidate is absent from the bound plan", 4,
+                                       archive=archive, path=summary["candidate_path"])
+            if _candidate_identity(summary["candidate"]) != _candidate_identity(plan_candidates[key]):
+                raise ConservatorError("plan_receipt_mismatch", "receipt candidate identity differs from the bound plan", 4,
+                                       archive=archive, path=summary["candidate_path"])
+    operations: list[dict[str, Any]] = []
+    attention: list[dict[str, Any]] = []
+    for key, entries in sorted(grouped.items(), key=lambda item: item[0]):
+        plan_sha, path = key
+        summary = next((item for item in receipts.values() if item["plan_sha256"] == plan_sha and item["candidate_path"] == path), None)
+        states = [entry["state"] for entry in entries]
+        archive = entries[-1].get("archive")
+        if summary is None:
+            operation = {"plan_sha256": plan_sha, "path": path, "journal_states": states,
+                         "archive": archive, "lifecycle": "planned_unfinished" if states == ["planned"] else "journal_incomplete",
+                         "archive_verified": False, "worktree_present": os.path.lexists(path),
+                         "registered": _registered(repo, Path(path)) is not None}
+            operations.append(operation)
+            attention.append({"path": path, "plan_sha256": plan_sha, "lifecycle": operation["lifecycle"]})
+            if states != ["planned"]:
+                raise ConservatorError("journal_receipt_missing", "journal archive phase has no receipt", 4,
+                                       path=path, plan_sha256=plan_sha)
+            continue
+        registered = _registered(repo, Path(path)) if os.path.lexists(path) else None
+        worktree_present = os.path.lexists(path)
+        state = summary["state"]
+        if state == "removed_and_verified":
+            if worktree_present or registered is not None:
+                raise ConservatorError("removal_not_proven", "receipt claims removal but the worktree still exists", 5,
+                                       path=path, archive=summary["archive"])
+            lifecycle = "removed_and_verified"
+        elif state == "archive_verified" and states == ["planned", "archive_verified"] and worktree_present and registered is not None:
+            lifecycle = "archive_preserved"
+        elif state in {"archive_verified", "archived_not_removed", "removal_failed_preserved"}:
+            lifecycle = "archive_only_unresolved" if not worktree_present and registered is None else "archive_preserved"
+        else:
+            lifecycle = "removal_outcome_unknown"
+        operation = {"plan_sha256": plan_sha, "path": path, "journal_states": states,
+                     "archive": summary["archive"], "archive_sha256": summary["archive_sha256"],
+                     "receipt": summary["receipt"], "receipt_state": state, "lifecycle": lifecycle,
+                     "archive_verified": True, "worktree_present": worktree_present,
+                     "registered": registered is not None}
+        operations.append(operation)
+        if lifecycle != "removed_and_verified":
+            attention.append({"path": path, "plan_sha256": plan_sha, "lifecycle": lifecycle,
+                              "receipt_state": state, "journal_states": states})
+    if bound_plan_sha is not None:
+        for key, candidate in sorted(plan_candidates.items()):
+            if key not in grouped:
+                attention.append({"path": key[1], "plan_sha256": key[0], "lifecycle": "never_started"})
+    counts = {"journal_operations": len(grouped), "receipt_count": len(receipts),
+              "archive_count": len(archive_paths), "removed_and_verified": sum(item["lifecycle"] == "removed_and_verified" for item in operations),
+              "attention": len(attention)}
+    return {"schema": AUDIT_SCHEMA, "archive_dir": str(archive_dir), "journal": str(journal),
+            "plan": plan_info["path"] if plan_info is not None else None,
+            "plan_sha256": bound_plan_sha, "operations": operations, "attention": attention, "counts": counts,
+            "complete": not attention}
 
 
 def _extract_member(tar: tarfile.TarFile, member: tarfile.TarInfo, root: Path) -> None:

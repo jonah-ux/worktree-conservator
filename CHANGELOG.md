@@ -1,8 +1,12 @@
 # Changelog
 
-All notable changes are recorded here. The project follows a small, human-reviewed release process; version 0.2.0 adds independent archive readback.
+All notable changes are recorded here. The project follows a small, human-reviewed release process; version 0.2.0 adds independent archive readback and version 0.3.0 adds lifecycle reconciliation.
 
-## [0.2.0] - Unreleased
+## [0.3.0] - Unreleased
+
+- Added read-only `audit` to reconcile every archive, receipt, and journal transition in an archive directory, with optional exact-plan binding and explicit attention for preserved or unfinished operations.
+
+## [0.2.0] - Released
 
 - Added read-only `verify` to bind an apply receipt to a retained archive and recheck its manifest, repository identity, Git object IDs, file modes, and blob bytes.
 - Extended the disposable demo and adversarial fixtures to cover post-apply verification, tampered archives, receipt mismatches, and cross-repository refusal.
