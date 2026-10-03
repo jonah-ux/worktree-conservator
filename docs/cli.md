@@ -1,6 +1,6 @@
 # CLI reference — 0.3
 
-The executable is `worktree-conservator`; the module entry point is `python -m worktree_conservator`. Operational commands return JSON. Help and version use plain text. `--json` is accepted for explicit machine-mode usage.
+The executable is `worktree-conservator`; the module entry point is `python3 -m worktree_conservator`. Operational commands return JSON. Help and version use plain text. `--json` is accepted for explicit machine-mode usage.
 
 | Command | Required options | Optional scope |
 | --- | --- | --- |
