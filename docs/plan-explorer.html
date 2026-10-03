@@ -6,6 +6,41 @@
   <meta name="description" content="A standalone synthetic guide to reviewing, preserving, refusing, and recovering Git worktrees.">
   <style>
     :root{color-scheme:dark;--bg:#131512;--paper:#1d211b;--line:#3b4337;--text:#f1efdf;--muted:#b3b9a5;--accent:#e9c973;--ok:#a2d8aa;--bad:#ffaba1;font-family:system-ui,-apple-system,sans-serif}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top right,#343b25,transparent 55%),var(--bg);color:var(--text);line-height:1.5}main{max-width:1180px;margin:auto;padding:38px 24px 56px}.top,header,.bar{display:flex;justify-content:space-between;gap:20px;align-items:center}.brand,.eyebrow,.pill,label,small{font:700 11px ui-monospace,monospace;letter-spacing:.1em}.brand{color:var(--accent)}.pill{border:1px solid var(--line);border-radius:30px;padding:8px 13px;color:var(--muted)}header{padding:62px 0 35px;align-items:start}h1{font-size:clamp(40px,6.6vw,76px);line-height:1.01;letter-spacing:-.05em;margin:12px 0 20px;max-width:800px}h1 em{color:var(--accent);font-style:normal}.lead{max-width:650px;color:var(--muted);font-size:18px}.vault{min-width:160px;width:220px}.eyebrow{color:var(--accent)}.layout{display:grid;grid-template-columns:1fr 1.35fr;gap:18px}.panel{border:1px solid var(--line);border-radius:18px;background:var(--paper);padding:24px}h2{font-size:22px;margin:7px 0 12px;letter-spacing:-.03em}.intro{font-size:14px;color:var(--muted)}.controls{display:grid;gap:12px;margin-top:20px}.controls label{font-size:11px;color:var(--muted)}select,button{font:inherit;border:1px solid var(--line);border-radius:9px;padding:12px;color:var(--text);background:#151a13}select{width:100%;margin-top:8px}button{cursor:pointer;font-size:13px;font-weight:700}button:hover{border-color:var(--accent)}button.primary{background:var(--accent);color:#232819;border-color:var(--accent)}a{color:var(--accent);text-underline-offset:4px}button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:4px}.steps{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}.step{padding:8px 10px;border:1px solid var(--line);border-radius:30px;font-size:11px;color:var(--muted)}.step.active{background:#3c4831;border-color:var(--ok);color:var(--ok)}.outcome{padding:20px;border-left:4px solid var(--ok);background:#131812;border-radius:5px}.outcome[data-tone="refuse"]{border-color:var(--bad)}.outcome strong{display:block;font:800 27px ui-monospace,monospace;color:var(--ok)}.outcome[data-tone="refuse"] strong{color:var(--bad)}.outcome p{margin:10px 0 0;color:var(--muted);font-size:14px}.detail{margin-top:16px;color:var(--muted);font-size:12px}.commands{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:18px}pre{background:#121710;padding:16px;border:1px solid var(--line);border-radius:9px;overflow:auto;font:12px/1.7 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.tagline{font-size:15px;color:var(--accent)}.limits{margin-top:18px;padding:20px;border:1px dashed var(--line);border-radius:14px;color:var(--muted);font-size:13px}.limits b{color:var(--text)}footer{display:flex;flex-wrap:wrap;gap:18px;margin-top:24px;font-size:12px;color:var(--muted)}@media(max-width:780px){header{padding-top:35px}.vault{display:none}.layout,.commands{grid-template-columns:1fr}.top{flex-wrap:wrap}.panel{padding:18px}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto;transition:none}}
+
+    .cohort-deck { position: relative; overflow: hidden; margin: 12px 0 30px; padding: 22px; border: 1px solid color-mix(in srgb, var(--deck-accent, var(--cyan, #72dcff)) 42%, var(--line, #263447)); border-radius: 22px; background: linear-gradient(135deg, color-mix(in srgb, var(--deck-accent, var(--cyan, #72dcff)) 10%, transparent), color-mix(in srgb, var(--panel, #101b2a) 94%, #000)); box-shadow: 0 24px 70px #0004; }
+    .cohort-deck::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 88% 16%, color-mix(in srgb, var(--deck-accent, var(--cyan, #72dcff)) 22%, transparent), transparent 25%); opacity: .75; }
+    .cohort-deck > * { position: relative; z-index: 1; }
+    .cohort-deck-head { display: flex; align-items: start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+    .cohort-deck-kicker { color: var(--deck-accent, var(--cyan, #72dcff)); font: 800 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .18em; text-transform: uppercase; }
+    .cohort-deck h2 { margin: 7px 0 5px; font-size: clamp(1.25rem, 2.4vw, 2rem); letter-spacing: -.04em; }
+    .cohort-deck-intro { max-width: 700px; margin: 0; color: var(--muted, #91a0b2); font-size: .92rem; }
+    .cohort-deck-badge { display: flex; flex-wrap: wrap; justify-content: end; gap: 7px; color: var(--deck-accent, var(--cyan, #72dcff)); font: 700 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; }
+    .cohort-deck-badge span { border: 1px solid color-mix(in srgb, var(--deck-accent, var(--cyan, #72dcff)) 45%, var(--line, #263447)); border-radius: 999px; padding: 7px 9px; background: #ffffff08; }
+    .cohort-deck-body { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(220px, .8fr); gap: 18px; align-items: stretch; }
+    .cohort-deck-visual { min-height: 180px; display: grid; place-items: center; padding: 12px; border: 1px solid var(--line, #263447); border-radius: 16px; background: #050a12aa; }
+    .cohort-deck-visual svg { width: 100%; height: auto; max-height: 210px; }
+    .cohort-deck-route { fill: none; stroke: color-mix(in srgb, var(--deck-accent, var(--cyan, #72dcff)) 65%, #fff); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 7 10; opacity: .72; }
+    .cohort-deck-node circle { fill: var(--panel-2, #152337); stroke: var(--line, #263447); stroke-width: 2; transition: fill .28s ease, stroke .28s ease, transform .28s ease; transform-box: fill-box; transform-origin: center; }
+    .cohort-deck-node text { fill: var(--muted, #91a0b2); font: 800 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-anchor: middle; }
+    .cohort-deck-node small { fill: var(--muted, #91a0b2); }
+    .cohort-deck-node[data-active='true'] circle { fill: color-mix(in srgb, var(--deck-accent, var(--cyan, #72dcff)) 28%, var(--panel-2, #152337)); stroke: var(--deck-accent, var(--cyan, #72dcff)); transform: scale(1.12); }
+    .cohort-deck-node[data-active='true'] text { fill: var(--deck-accent, var(--cyan, #72dcff)); }
+    .cohort-deck-node[data-complete='true'] circle { stroke: var(--deck-good, var(--mint, #9eeed0)); }
+    .cohort-deck-node[data-complete='true'] text { fill: var(--deck-good, var(--mint, #9eeed0)); }
+    .cohort-deck-axis { fill: var(--muted, #91a0b2); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+    .cohort-deck-copy { display: flex; flex-direction: column; justify-content: space-between; padding: 16px 2px 12px 4px; }
+    .cohort-deck-copy h3 { margin: 7px 0 7px; font-size: 1.35rem; letter-spacing: -.04em; }
+    .cohort-deck-copy p { margin: 0; color: var(--muted, #91a0b2); font-size: .86rem; }
+    .cohort-deck-readout { margin-top: 16px; padding: 11px 12px; border-left: 3px solid var(--deck-good, var(--mint, #9eeed0)); background: #ffffff06; color: var(--deck-good, var(--mint, #9eeed0)); font: 700 .75rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .cohort-deck-next { align-self: start; margin-top: 15px; border: 1px solid var(--deck-accent, var(--cyan, #72dcff)); border-radius: 10px; padding: 9px 12px; color: var(--deck-accent, var(--cyan, #72dcff)); background: #ffffff08; font: 800 .72rem ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; }
+    .cohort-deck-next:hover, .cohort-deck-next:focus-visible { outline: 2px solid color-mix(in srgb, var(--deck-accent, var(--cyan, #72dcff)) 35%, transparent); outline-offset: 2px; background: #ffffff12; }
+    .cohort-deck-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
+    .cohort-deck-tab { border: 1px solid var(--line, #263447); border-radius: 999px; padding: 7px 10px; color: var(--muted, #91a0b2); background: transparent; font: 800 .67rem ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; }
+    .cohort-deck-tab[aria-selected='true'] { border-color: var(--deck-accent, var(--cyan, #72dcff)); color: var(--deck-accent, var(--cyan, #72dcff)); background: color-mix(in srgb, var(--deck-accent, var(--cyan, #72dcff)) 12%, transparent); }
+    .cohort-deck-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin-top: 14px; color: var(--muted, #91a0b2); font: .68rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+    @media (max-width: 720px) { .cohort-deck-head { display: block; } .cohort-deck-badge { justify-content: start; margin-top: 12px; } .cohort-deck-body { grid-template-columns: 1fr; } .cohort-deck-copy { padding-left: 0; } }
+    @media (prefers-reduced-motion: reduce) { .cohort-deck-node circle, .cohort-deck-route { transition: none !important; animation: none !important; } }
+
   </style>
 </head>
 <body>
@@ -14,6 +49,29 @@
   <header><div><span class="eyebrow">A way back belongs in the plan</span><h1>Clean up your branches.<br><em>Keep the escape hatch.</em></h1><p class="lead">Review a candidate, preserve its committed tree, then read back the result. Try the refusal paths here before pointing the real CLI at a repository.</p><p class="tagline">The bouncer for your worktrees. Dirty shoes? You're staying.</p></div>
     <svg class="vault" viewBox="0 0 220 245" role="img" aria-labelledby="vault-title"><title id="vault-title">A sealed archive with a key for recovery</title><rect x="20" y="20" width="180" height="200" rx="24" fill="#242d1e" stroke="#e9c973" stroke-width="2"/><rect x="35" y="37" width="150" height="166" rx="16" fill="#151a13" stroke="#566449"/><circle cx="110" cy="111" r="40" fill="#303b26" stroke="#e9c973" stroke-width="3"/><circle cx="110" cy="111" r="12" fill="#e9c973"/><path d="M110 72v78M71 111h78M82 83l56 56M82 139l56-56" stroke="#e9c973" stroke-width="3"/><rect x="63" y="171" width="94" height="12" rx="4" fill="#a2d8aa"/><circle cx="177" cy="180" r="5" fill="#a2d8aa"/></svg>
   </header>
+    <section class="cohort-deck" data-cohort-deck="worktree-conservator" style="--deck-accent: var(--accent); --deck-good: var(--ok);" aria-labelledby="worktreeconservator-deck-title">
+      <div class="cohort-deck-head">
+        <div><div class="cohort-deck-kicker">launch deck / synthetic state explorer</div><h2 id="worktreeconservator-deck-title">Run the preservation desk.</h2><p class="cohort-deck-intro">Choose a lifecycle beat before you point the real CLI at a repository. The rail makes the safe order visible: inspect, preserve, verify, then consider removal.</p></div>
+        <div class="cohort-deck-badge"><span>local core</span><span id="worktreeconservator-deck-badge">SCAN / PRESERVE / RESTORE</span></div>
+      </div>
+      <div class="cohort-deck-body">
+        <div class="cohort-deck-visual">
+          <svg viewBox="0 0 640 190" role="img" aria-labelledby="worktreeconservator-rail-title worktreeconservator-rail-desc">
+            <title id="worktreeconservator-rail-title">SCAN / PRESERVE / RESTORE lifecycle rail</title><desc id="worktreeconservator-rail-desc">Three synthetic states connected in order; choose a state button to inspect its readback.</desc>
+            <path class="cohort-deck-route" d="M72 95 C135 35 199 155 262 95 S389 35 452 95 S579 155 622 95"/>
+            <g class="cohort-deck-node" data-node="0" data-active="true" data-complete="false" tabindex="-1"><circle cx="72" cy="95" r="28"/><text x="72" y="99">SCAN</text></g><g class="cohort-deck-node" data-node="1" data-active="false" data-complete="false" tabindex="-1"><circle cx="262" cy="95" r="28"/><text x="262" y="99">PRESERVE</text></g><g class="cohort-deck-node" data-node="2" data-active="false" data-complete="false" tabindex="-1"><circle cx="452" cy="95" r="28"/><text x="452" y="99">RESTORE</text></g>
+            <text class="cohort-deck-axis" x="20" y="166">START</text><text class="cohort-deck-axis" x="578" y="166">READ BACK</text>
+          </svg>
+        </div>
+        <div class="cohort-deck-copy" role="tabpanel" aria-live="polite">
+          <div><div class="cohort-deck-kicker" id="worktreeconservator-deck-kicker">beat 01 / scan</div><h3 id="worktreeconservator-deck-heading">Inspect a candidate</h3><p id="worktreeconservator-deck-copy">The browser sees a fictional clean or dirty worktree; the real tool must establish identity and liveness.</p><div class="cohort-deck-readout" id="worktreeconservator-deck-readout">preview only · no filesystem writes</div></div>
+          <button class="cohort-deck-next" type="button" data-deck-next>next beat →</button>
+        </div>
+      </div>
+      <div class="cohort-deck-tabs" role="tablist" aria-label="Synthetic guide beats"><button class="cohort-deck-tab" type="button" role="tab" aria-selected="true" data-deck-step="0">01 · SCAN</button><button class="cohort-deck-tab" type="button" role="tab" aria-selected="false" data-deck-step="1">02 · PRESERVE</button><button class="cohort-deck-tab" type="button" role="tab" aria-selected="false" data-deck-step="2">03 · RESTORE</button></div>
+      <div class="cohort-deck-foot"><span>Synthetic preservation desk: a browser illustration never scans, archives, removes, or restores a worktree.</span><span>illustrative browser state · no sibling install</span></div>
+    </section>
+
   <div class="layout">
     <section class="panel" aria-labelledby="choose"><span class="eyebrow">01 / candidate</span><h2 id="choose">Try a safe preview.</h2><p class="intro">These are fixed fictional scenarios. This page never scans your disk, executes Git, removes a worktree, or creates an archive.</p>
       <div class="controls"><label for="scenario">CANDIDATE STATE<select id="scenario"><option value="eligible">Clean, old, inactive, merged</option><option value="dirty">Tracked changes still present</option><option value="unknown">Process liveness unknown</option><option value="stale">Identity changed after planning</option><option value="collision">Recovery target already exists</option></select></label><button class="primary" id="preview">Preview decision</button><button id="advance" disabled>Explore the next lifecycle step</button><button id="reset">Reset preview</button></div>
@@ -50,6 +108,37 @@ worktree-conservator demo --json</pre><button class="copy" data-copy="install">C
   document.getElementById('scenario').addEventListener('change',function(){phase=0;selected=true;show()});
   document.getElementById('reset').addEventListener('click',function(){document.getElementById('scenario').value='eligible';phase=0;selected=true;show()});
   document.querySelectorAll('.copy').forEach(function(button){button.addEventListener('click',async function(){const text=document.getElementById(button.dataset.copy).textContent;try{await navigator.clipboard.writeText(text);document.getElementById('copy-status').textContent='Copied. Inspect paths before use.'}catch(error){document.getElementById('copy-status').textContent='Select the command text above to copy manually.'}})});
+</script>
+
+<script>
+(() => {
+  const deck = document.querySelector('[data-cohort-deck="worktree-conservator"]');
+  if (!deck) return;
+  const steps = [{"label": "SCAN", "heading": "Inspect a candidate", "copy": "The browser sees a fictional clean or dirty worktree; the real tool must establish identity and liveness.", "readout": "preview only · no filesystem writes"}, {"label": "PRESERVE", "heading": "Archive before removal", "copy": "A reviewed plan protects committed bytes before any retirement step is considered.", "readout": "preserve first · review required"}, {"label": "RESTORE", "heading": "Return to an absent target", "copy": "Recovery stays explicit: trusted bytes, Git identity, and a new destination are all required.", "readout": "new target only · refusal is visible"}];
+  const tabs = Array.from(deck.querySelectorAll('[data-deck-step]'));
+  const nodes = Array.from(deck.querySelectorAll('.cohort-deck-node'));
+  const kicker = deck.querySelector('#worktreeconservator-deck-kicker');
+  const heading = deck.querySelector('#worktreeconservator-deck-heading');
+  const copy = deck.querySelector('#worktreeconservator-deck-copy');
+  const readout = deck.querySelector('#worktreeconservator-deck-readout');
+  let current = 0;
+  function render(index) {
+    current = (index + steps.length) % steps.length;
+    const item = steps[current];
+    kicker.textContent = `beat ${String(current + 1).padStart(2, '0')} / ${item.label.toLowerCase()}`;
+    heading.textContent = item.heading;
+    copy.textContent = item.copy;
+    readout.textContent = item.readout;
+    tabs.forEach((tab, i) => tab.setAttribute('aria-selected', String(i === current)));
+    nodes.forEach((node, i) => {
+      node.dataset.active = String(i === current);
+      node.dataset.complete = String(i < current);
+    });
+  }
+  tabs.forEach((tab, i) => tab.addEventListener('click', () => render(i)));
+  deck.querySelector('[data-deck-next]').addEventListener('click', () => render(current + 1));
+  render(0);
+})();
 </script>
 </body>
 </html>
