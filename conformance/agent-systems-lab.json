@@ -1,0 +1,23 @@
+{
+  "schema": "agent-systems-lab-worktree-conformance/v1",
+  "owner": "worktree-conservator",
+  "native_schema": "worktree-conservator.result/v1",
+  "shared_adapter": {
+    "owner": "agent-proof",
+    "schema": "agent-proof/interop/v1",
+    "manifest_url": "https://github.com/jonah-ux/agent-proof/blob/283a5e69db44d43f87876b4b30b576a0dcac7930/conformance/agent-systems-lab.json",
+    "revision": "283a5e69db44d43f87876b4b30b576a0dcac7930"
+  },
+  "cases": [
+    {"name": "disposable-lifecycle", "stages": ["scan", "plan", "apply", "verify", "audit", "restore"], "result": "verified"},
+    {"name": "read-only-scan", "mutation": "none", "result": "eligible-or-refused"},
+    {"name": "stale-plan", "result": "refused", "code": "plan_digest_mismatch"},
+    {"name": "candidate-change", "result": "refused", "code": "stale_candidate"},
+    {"name": "unsafe-archive", "result": "refused", "code": "unsafe_archive_path"}
+  ],
+  "privacy": {
+    "real_worktrees_touched": false,
+    "demo_uses_temporary_repository": true,
+    "credentials_serialized": false
+  }
+}
