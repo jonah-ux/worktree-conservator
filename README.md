@@ -24,6 +24,11 @@ Requirements: Python 3.11+, Git 2.38+, a local Git repository with a resolvable 
 
 ## Quick start
 
+Open the self-contained [preservation desk](docs/plan-explorer.html) for a visual guide to the
+plan, archive, verify, removal, and recovery boundaries. Try the dirty, unknown, stale-plan,
+and existing-target refusals. Its fictional preview touches no files; the installed CLI demo
+below exercises the real workflow using its own temporary repositories.
+
 Try the complete workflow in a disposable repository:
 
 ```console
