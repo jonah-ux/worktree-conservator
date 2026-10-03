@@ -166,3 +166,17 @@ python3 -m worktree_conservator demo
 ```
 
 The demo builds only temporary repositories and executes scan/plan/apply/verify/audit/restore end-to-end. See [Contributing](CONTRIBUTING.md), [security policy](SECURITY.md), [release procedure](docs/releasing.md), [source provenance](PROVENANCE.md), and [limitations](docs/limitations.md).
+
+## Public surface audit
+
+Run the owner-native supply-chain and privacy audit from a clean checkout:
+
+```console
+python scripts/audit_public_surface.py --json
+```
+
+The static receipt checks dependency and license declarations, release-workflow provenance markers,
+and high-signal secret patterns across tracked text files. Pass a built `dist/` directory with
+`--dist-dir dist` to compare wheel and sdist bytes with `SHA256SUMS`. Missing artifacts remain
+`unavailable`; a passing audit does not claim security, deployment, adoption, or production
+readiness.
