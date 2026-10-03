@@ -27,9 +27,9 @@ actual verification: not run</pre>
     </section>
   </div>
   <div class="commands">
-    <section class="panel"><span class="eyebrow">03 / install one tool</span><h2>A complete standalone demo.</h2><p class="intro">Python 3.11+ and Git 2.38+. No companion Jonah-UX repository, API key, database, or service needed.</p><pre id="install">python3 -m venv .venv
+    <section class="panel"><span class="eyebrow">03 / install one tool</span><h2>A complete standalone demo.</h2><p class="intro">Python 3.11+ and Git 2.38+. No companion Jonah-UX repository, API key, database, or service needed. This source guide targets 0.3.0; tagged installation requires its published tag. Check the release listing below for availability; until publication, use v0.2.0 for the interface without audit.</p><pre id="install">python3 -m venv .venv
 . .venv/bin/activate
-python3 -m pip install 'git+https://github.com/jonah-ux/worktree-conservator.git@v0.2.0'
+python3 -m pip install 'git+https://github.com/jonah-ux/worktree-conservator.git@v0.3.0'
 worktree-conservator --version
 worktree-conservator demo --json</pre><button class="copy" data-copy="install">Copy install + disposable demo</button><p class="detail">The installed CLI includes the demo. It constructs its own temporary repositories and runs the workflow there. No existing worktree is selected.</p></section>
     <section class="panel"><span class="eyebrow">04 / first real step</span><h2>Look before you touch.</h2><p class="intro">After inspecting the demo, start with the read-only inventory for a repository you select explicitly.</p><pre id="scan">worktree-conservator scan \
@@ -38,7 +38,7 @@ worktree-conservator demo --json</pre><button class="copy" data-copy="install">C
   --base-ref origin/main --json</pre><button class="copy" data-copy="scan">Copy read-only scan example</button><p class="detail">Replace example paths before use. Refresh the remote base separately. A refusal remains a refusal; nothing here grants approval to retire a worktree.</p></section>
   </div>
   <aside class="limits"><b>What is proved by the real tool:</b> a reviewed plan, pinned identity, archive bytes, and explicit removal/recovery postconditions when the corresponding CLI checks succeed. <b>What this page proves:</b> only the documented decision flow. Archives preserve committed content; they are not backups of uncommitted work or a substitute for the repository's Git objects. See the <a href="https://github.com/jonah-ux/worktree-conservator/blob/main/docs/limitations.md">full limits</a>.</aside>
-  <footer><a href="https://github.com/jonah-ux/worktree-conservator">Source and full README</a><a href="https://github.com/jonah-ux/worktree-conservator/releases/tag/v0.2.0">Published v0.2.0</a><span>Local tool. Optional connections. Your own way back.</span><span id="copy-status" role="status" aria-live="polite"></span></footer>
+  <footer><a href="https://github.com/jonah-ux/worktree-conservator">Source and full README</a><a href="https://github.com/jonah-ux/worktree-conservator/releases">Published releases</a><span>Local tool. Optional connections. Your own way back.</span><span id="copy-status" role="status" aria-live="polite"></span></footer>
 </main>
 <script>
   const scenarios={eligible:['ELIGIBLE IN FICTION','Every listed synthetic check is positive; the real tool still needs a reviewed exact-digest plan.'],dirty:['REFUSED','Tracked changes are present. Preserve the work; do not retire this candidate.'],unknown:['UNKNOWN → KEEP','Liveness could not be established. Missing evidence is not inactivity.'],stale:['STALE PLAN → KEEP','The candidate identity changed after planning. Reinspect; the prior digest cannot authorize this state.'],collision:['TARGET COLLISION','Restore only into a new absent directory. An existing target is never replaced.']};

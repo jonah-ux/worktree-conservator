@@ -1,6 +1,6 @@
 # Security policy
 
-Report vulnerabilities privately to the repository owner through the contact method configured on the public repository. Do not open an issue containing secrets, real worktree contents, internal host paths, or an exploit against a live checkout. The latest published release is `worktree-conservator@0.2.0`; the default branch currently carries unreleased `0.3.0` development changes. Report the exact tag or commit when describing an affected version.
+Report vulnerabilities privately to the repository owner through the contact method configured on the public repository. Do not open an issue containing secrets, real worktree contents, internal host paths, or an exploit against a live checkout. This source describes the `worktree-conservator@0.3.0` prerelease line; [GitHub Releases](https://github.com/jonah-ux/worktree-conservator/releases) is the authority for published versions. Report the exact tag or commit when describing an affected version; the default branch may contain unreleased changes.
 
 ## Scope and threat model
 
