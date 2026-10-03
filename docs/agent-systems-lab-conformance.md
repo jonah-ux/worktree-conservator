@@ -8,8 +8,14 @@ Agent Proof at runtime.
 The owner demo proves scan, immutable plan, apply, archive verification, audit,
 and restore. The manifest also names native refusal cases for stale plans,
 candidate changes, and unsafe archives; the existing owner test suite exercises
-those refusal codes. Agent Proof owns the downstream `agent-proof/interop/v1`
-projection and no second registry is created here.
+those refusal codes. The Agent Proof URL and revision are downstream-owner and
+generic-schema provenance metadata only; they do not claim that a Worktree
+Conservator adapter or normalization behavior was proven at that pinned revision.
+No second registry is created here.
 
 Run the focused test from a fresh checkout. All repository and worktree changes
 are made inside temporary fixture directories.
+
+```console
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_agent_systems_lab_conformance.py -v
+```

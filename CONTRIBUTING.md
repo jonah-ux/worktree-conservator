@@ -5,7 +5,10 @@ Thanks for helping make destructive Git operations more conservative. Bug report
 ## Local checks
 
 - Python 3.11 or newer; Git 2.38 or newer.
-- Run `python3 -m unittest discover -s tests -v` and `python3 -m worktree_conservator demo`.
+- In a fresh virtual environment, install the checkout with `python3 -m pip install -e .`,
+  then run `python3 -m unittest discover -s tests -v` and `python3 -m worktree_conservator demo`.
+- Add tests as `unittest.TestCase` methods. CI uses unittest discovery; top-level pytest
+  functions are not executed. Confirm each new case appears in the verbose test output.
 - Verify package artifacts with `python -m build` and install the wheel into a fresh virtual environment.
 - Add adversarial refusal tests for every new acceptance path. Use only temporary test repositories; tests must never target home directories, user worktrees, or remote repositories.
 

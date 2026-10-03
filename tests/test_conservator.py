@@ -302,7 +302,7 @@ class Fixture(unittest.TestCase):
             restore(archived["archive"], archived["archive_sha256"], self.repo, link_parent / "recovered")
         self.assertIn(caught.exception.code, {"symlink_path", "path_unavailable"})
 
-    def test_restore_rejects_digest_and_malformed_traversal_archive(self) -> None:
+    def test_restore_rejects_digest_and_unsafe_archive_member_before_writes(self) -> None:
         candidate = self.candidate()
         value, path = self.plan(candidate)
         applied = apply_plan(path, value["plan_sha256"], self.repo, self.archive_dir, self.worktrees)
@@ -311,14 +311,16 @@ class Fixture(unittest.TestCase):
             restore(archived["archive"], "0" * 64, self.repo, self.worktrees / "bad-digest")
         self.assertEqual(caught.exception.code, "archive_digest_mismatch")
         malicious = self.root / "malicious.tar"
-        with tarfile.open(malicious, "w") as tar:
+        malicious.write_bytes(Path(archived["archive"]).read_bytes())
+        with tarfile.open(malicious, "a") as tar:
             info = tarfile.TarInfo("../outside.txt")
             info.size = 3
             tar.addfile(info, io.BytesIO(b"bad"))
         with self.assertRaises(ConservatorError) as caught:
             restore(malicious, hashlib.sha256(malicious.read_bytes()).hexdigest(), self.repo, self.worktrees / "unsafe")
-        self.assertIn(caught.exception.code, {"unsafe_archive_path", "archive_manifest_missing", "archive_corrupt"})
+        self.assertEqual(caught.exception.code, "unsafe_archive_path")
         self.assertFalse((self.root / "outside.txt").exists())
+        self.assertFalse((self.worktrees / "unsafe").exists())
 
     def test_git_evidence_failure_is_not_clean(self) -> None:
         candidate = self.candidate()
