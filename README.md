@@ -10,11 +10,17 @@ Python 3.11+ · Git 2.38+ · Zero Python runtime dependencies · MIT · Early re
 
 ## Install
 
+The commands below target the `0.3.0` prerelease source. Check
+[GitHub Releases](https://github.com/jonah-ux/worktree-conservator/releases)
+for publication status: the tag must exist before a tagged install can succeed.
+Until `v0.3.0` is published, use `@v0.2.0` for the published interface, which does
+not include `audit`.
+
 ```console
 python3 -m venv .venv
 . .venv/bin/activate
 python3 -m pip install --upgrade pip
-python3 -m pip install 'git+https://github.com/jonah-ux/worktree-conservator.git@v0.2.0'
+python3 -m pip install 'git+https://github.com/jonah-ux/worktree-conservator.git@v0.3.0'
 worktree-conservator --version
 ```
 
@@ -62,7 +68,8 @@ worktree-conservator verify --repo ~/src/project \
   --archive-sha256 'DIGEST_FROM_ARCHIVE_RECEIPT' \
   --receipt ~/worktree-archives/ARCHIVE_FROM_RECEIPT.tar.receipt.json --json
 
-# Reconcile every retained archive, receipt, and journal transition.
+# Reconcile every retained archive, receipt, and journal transition (0.3.0 only).
+# Skip this audit step when using the published 0.2.0 fallback.
 worktree-conservator audit --repo ~/src/project \
   --archive-dir ~/worktree-archives \
   --plan reviewed-plan.json --plan-sha256 'DIGEST_FROM_REVIEWED_PLAN' --json
@@ -154,4 +161,4 @@ python3 -m unittest discover -s tests -v
 python3 -m worktree_conservator demo
 ```
 
-The demo builds only temporary repositories and executes scan/plan/apply/verify/restore end-to-end. See [Contributing](CONTRIBUTING.md), [security policy](SECURITY.md), [release procedure](docs/releasing.md), [source provenance](PROVENANCE.md), and [limitations](docs/limitations.md).
+The demo builds only temporary repositories and executes scan/plan/apply/verify/audit/restore end-to-end. See [Contributing](CONTRIBUTING.md), [security policy](SECURITY.md), [release procedure](docs/releasing.md), [source provenance](PROVENANCE.md), and [limitations](docs/limitations.md).

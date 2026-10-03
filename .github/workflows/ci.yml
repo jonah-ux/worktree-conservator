@@ -32,15 +32,50 @@ jobs:
         run: |
           python -m pip install build
           python -m build --sdist --wheel
+      - name: Verify source distribution resources
+        run: |
+          python - <<'PY'
+          from pathlib import Path, PurePosixPath
+          import tarfile
+          required = {"docs/plan-explorer.html", "conformance/agent-systems-lab.json", "examples/README.md", "examples/maintainer_recovery.py"}
+          with tarfile.open(next(Path("dist").glob("*.tar.gz"))) as archive:
+              names = {"/".join(PurePosixPath(member.name).parts[1:]) for member in archive if member.isfile()}
+          missing = sorted(required - names)
+          if missing:
+              raise SystemExit(f"Source distribution missing user resources: {missing}")
+          print("Source distribution contains preservation desk, conformance fixture, and recovery example")
+          PY
       - name: Verify installed wheel and sdist
         shell: bash
         run: |
+          cd "$RUNNER_TEMP"
+          unset PYTHONPATH
           python -m venv "$RUNNER_TEMP/wtc-wheel"
-          "$RUNNER_TEMP/wtc-wheel/bin/python" -m pip install --no-deps dist/worktree_conservator-*.whl
-          "$RUNNER_TEMP/wtc-wheel/bin/worktree-conservator" --version
-          "$RUNNER_TEMP/wtc-wheel/bin/worktree-conservator" demo --json
+          "$RUNNER_TEMP/wtc-wheel/bin/python" -m pip install --no-deps "$GITHUB_WORKSPACE"/dist/worktree_conservator-*.whl
+          "$RUNNER_TEMP/wtc-wheel/bin/python" -c 'from pathlib import Path; import sys, worktree_conservator; source = Path(worktree_conservator.__file__).resolve(); assert source.is_relative_to(Path(sys.prefix).resolve()), source; print(source)'
+          "$RUNNER_TEMP/wtc-wheel/bin/worktree-conservator" --version | tee "$RUNNER_TEMP/wtc-wheel-version.txt"
+          "$RUNNER_TEMP/wtc-wheel/bin/worktree-conservator" --help > /dev/null
+          "$RUNNER_TEMP/wtc-wheel/bin/worktree-conservator" demo --json | tee "$RUNNER_TEMP/wtc-wheel-demo.json"
           python -m venv "$RUNNER_TEMP/wtc-sdist"
-          "$RUNNER_TEMP/wtc-sdist/bin/python" -m pip install --no-deps dist/worktree_conservator-*.tar.gz
-          "$RUNNER_TEMP/wtc-sdist/bin/worktree-conservator" --version
-          "$RUNNER_TEMP/wtc-sdist/bin/worktree-conservator" demo --json
-
+          "$RUNNER_TEMP/wtc-sdist/bin/python" -m pip install --no-deps "$GITHUB_WORKSPACE"/dist/worktree_conservator-*.tar.gz
+          "$RUNNER_TEMP/wtc-sdist/bin/python" -c 'from pathlib import Path; import sys, worktree_conservator; source = Path(worktree_conservator.__file__).resolve(); assert source.is_relative_to(Path(sys.prefix).resolve()), source; print(source)'
+          "$RUNNER_TEMP/wtc-sdist/bin/worktree-conservator" --version | tee "$RUNNER_TEMP/wtc-sdist-version.txt"
+          "$RUNNER_TEMP/wtc-sdist/bin/worktree-conservator" --help > /dev/null
+          "$RUNNER_TEMP/wtc-sdist/bin/worktree-conservator" demo --json | tee "$RUNNER_TEMP/wtc-sdist-demo.json"
+          python - <<'PY'
+          from pathlib import Path
+          import json, os, tomllib
+          workspace = Path(os.environ["GITHUB_WORKSPACE"])
+          temporary = Path(os.environ["RUNNER_TEMP"])
+          version = tomllib.loads((workspace / "pyproject.toml").read_text())["project"]["version"]
+          for kind in ("wheel", "sdist"):
+              assert (temporary / f"wtc-{kind}-version.txt").read_text().strip() == f"worktree-conservator {version}"
+              result = json.loads((temporary / f"wtc-{kind}-demo.json").read_text())
+              assert result["schema"] == "worktree-conservator.result/v1" and result["command"] == "demo"
+              assert result["ok"] is True and result["errors"] == []
+              data = result["data"]
+              assert all(data[field] is True for field in ("verified", "audited", "restored"))
+              assert type(data["audit_attention"]) is int and data["audit_attention"] == 0
+              assert all(type(data[field]) is int and data[field] == 1 for field in ("planned", "applied"))
+              print(f"Installed {kind}: version {version}, verified/audited/restored, zero audit attention")
+          PY

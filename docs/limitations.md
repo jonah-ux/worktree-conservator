@@ -1,6 +1,6 @@
 # Limitations and recovery notes
 
-The current `0.3.0` development line intentionally supports a narrow, conservative state: linked worktrees containing a clean ordinary Git tree, with an available commit and non-shallow repository. It refuses rather than guesses when state cannot be proven.
+The `0.3.0` prerelease intentionally supports a narrow, conservative state: linked worktrees containing a clean ordinary Git tree, with an available commit and non-shallow repository. It refuses rather than guesses when state cannot be proven.
 
 Supported archive fidelity is tracked regular-file bytes and executable mode. Not preserved: uncommitted changes, the index as a user artifact, Git admin files, branch names as mutable refs, file timestamps, ownership, xattrs, ACLs, hardlinks, symlinks, submodules, LFS payloads, sparse checkout configuration, or ignored/generated content. A restore is a clean detached worktree at the recorded commit, not a reconstruction of a dirty session.
 
