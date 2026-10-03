@@ -79,6 +79,10 @@ Replace the digest placeholders with the exact 64-character SHA-256 values in th
 
 `scan`, `plan`, `verify`, and `audit` do not edit repositories, worktrees, or archives. `plan` creates only its requested output file and parent directory. `apply` and `restore` are explicit mutation commands. Apply rechecks the reviewed candidates; it refuses a changed digest, base, repository, worktree identity, or safety state. A verified archive is retained when later checks refuse removal. `verify` is the independent readback step: it proves one archive against its receipt and the repository's Git blobs after the original worktree has disappeared. `audit` reconciles the whole archive directory: every archive must have a matching receipt, every receipt is independently verified, and each journal transition is checked against the recorded lifecycle. When a plan is supplied, every planned candidate is also checked for a corresponding operation; preserved and unfinished work remains visible as attention rather than being reported as removed.
 
+Plan publication uses the same temporary-file, flush, directory-sync, and
+no-overwrite atomic helper as lifecycle receipts. A failed write therefore
+does not leave a truncated reviewed plan at the requested path.
+
 ## Workflow
 
 ```mermaid

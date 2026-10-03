@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .core import ConservatorError, apply_plan, audit_archive_dir, make_plan, restore, scan, verify_archive
+from .core import ConservatorError, _atomic_json, apply_plan, audit_archive_dir, make_plan, restore, scan, verify_archive
 from .demo import run_demo
 
 EXIT_SUCCESS = 0
@@ -88,8 +88,7 @@ def _write_json(path: str, value: dict[str, Any]) -> None:
     target = Path(path).expanduser()
     if target.exists() or target.is_symlink():
         raise ConservatorError("output_exists", "refusing to overwrite an existing plan path", EXIT_UNSAFE)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8") + b"\n")
+    _atomic_json(target, value, replace=False)
 
 
 def main(argv: list[str] | None = None) -> int:
