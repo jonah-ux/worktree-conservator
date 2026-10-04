@@ -10,11 +10,9 @@ Python 3.11+ · Git 2.38+ · Zero Python runtime dependencies · MIT · Early re
 
 ## Install
 
-The commands below target the `0.3.0` prerelease source. Check
-[GitHub Releases](https://github.com/jonah-ux/worktree-conservator/releases)
-for publication status: the tag must exist before a tagged install can succeed.
-Until `v0.3.0` is published, use `@v0.2.0` for the published interface, which does
-not include `audit`.
+The commands below install the published `v0.3.0` prerelease, including `audit`.
+For the stable interface without `audit`, use `@v0.2.0`.
+[Release assets](https://github.com/jonah-ux/worktree-conservator/releases) include wheels.
 
 ```console
 python3 -m venv .venv
@@ -24,7 +22,7 @@ python3 -m pip install 'git+https://github.com/jonah-ux/worktree-conservator.git
 worktree-conservator --version
 ```
 
-Alternatively, install a wheel from [GitHub Releases](https://github.com/jonah-ux/worktree-conservator/releases). Try the complete temporary-repository workflow with `worktree-conservator demo --json` after installing. For development, install the source checkout with `python3 -m pip install -e .`.
+For development, install the source checkout with `python3 -m pip install -e .`.
 
 Requirements: Python 3.11+, Git 2.38+, a local Git repository with a resolvable base ref. There are no Python runtime dependencies and no Fleet paths, rosters, credentials, schedulers, databases, or network calls.
 
